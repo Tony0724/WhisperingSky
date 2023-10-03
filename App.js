@@ -1,67 +1,256 @@
 import * as Location from 'expo-location';
-import React, {useEffect, useState} from 'react';
-import { ScrollView, StyleSheet, Text, View, Image } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import {
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  Image,
+  Dimensions,
+  ActivityIndicator,
+} from 'react-native';
 import getSunTime from './getSunTime';
-import { MaterialCommunityIcons, FontAwesome5, Feather } from '@expo/vector-icons'; 
+import {
+  MaterialCommunityIcons,
+  FontAwesome5,
+  Feather,
+} from '@expo/vector-icons';
 
 const apiKey = '26c67ed58f6cd8d8670df2b48a80a200';
 
 export default function App() {
+  const [city, setCity] = useState('Loading...');
   const [location, setLocation] = useState();
   const [ok, setOk] = useState(true);
   const [weatherData, setWeatherData] = useState(null);
   const [airData, setAirData] = useState(null);
-  const ask = async() => {
-    const {granted} = await Location.requestForegroundPermissionsAsync();
-    if(!granted) {
+  const [weatherType, setWeatherType] = useState(null);
+  const [weatherIcon, setWeatherIcon] = useState(null);
+
+  const ask = async () => {
+    const { granted } = await Location.requestForegroundPermissionsAsync();
+    if (!granted) {
       setOk(false);
     }
-    const {coords: {latitude, longitude}} = await Location.getCurrentPositionAsync({accuracy: 5});
+    const { coords: { latitude, longitude } } =
+      await Location.getCurrentPositionAsync({ accuracy: 5 });
     fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${latitude}&lon=${longitude}&units=metric&lang=kr&appid=${apiKey}`)
       .then((res) => res.json())
       .then((data) => {
-        setWeatherData(data); // JSON 데이터를 상태에 저장
-        // console.log(data.weather[0].main); // 필요에 따라 데이터를 콘솔에 출력할 수 있습니다.
+        setWeatherData(data);
       })
       .catch((error) => {
-        console.error("Error fetching weather data:", error);
+        console.error('Error fetching weather data:', error);
       });
     fetch(`https://api.openweathermap.org/data/2.5/air_pollution?lat=${latitude}&lon=${longitude}&units=metric&appid=${apiKey}`)
       .then((res) => res.json())
       .then((data) => {
-        setAirData(data); // JSON 데이터를 상태에 저장
-        // console.log(data);
-      })
-  }
+        setAirData(data);
+      });
+    const location = await Location.reverseGeocodeAsync(
+      { latitude, longitude },
+      { useGoogleMaps: false }
+    );
+    if(location[0].region !== null && location[0].district !== null) {
+      setCity(location[0].region + ' ' + location[0].district);
+    } else if(location[0].city !== null && location[0].region !== null) {
+      setCity(location[0].region + ' ' + location[0].city)
+    } else {
+      setCity(location[0].country)
+    }
+  };
+
+  const getWeatherTypes = (id, icon) => {
+        if ((id >= 200 && id <= 202) || (id >= 230 && id <= 232)) {
+            return {
+                icon: "weather-lightning-rainy", 
+                type: "천둥비"
+            };
+        } else if (id >= 210 && id <= 221) {
+            return {
+                icon: "weather-lightning", 
+                type: "벼락"
+            };
+        } else if ((id >= 300 && id <= 321) || id === 520) {
+            return {
+                icon: "weather-pouring", 
+                type: "소나기"
+            };
+        } else if ((id >= 500 && id <= 504) || (id >= 521 && id <= 531)) {
+            return {
+                icon: "weather-rainy", 
+                type: "비"
+            };
+        } else if (id === 511 || id === 600 || id === 601 || (id >= 611 && id <= 613) || id === 620 || id === 621) {
+            return {
+                icon: "weather-snowy", 
+                type: "눈"
+            };
+        } else if (id === 602 || id === 622) {
+            return {
+                icon: "weather-snowy-heavy", 
+                type: "폭설"
+            };
+        } else if (id === 615 || id === 616) {
+            return {
+                icon: "weather-snowy-rainy", 
+                type: "눈비"
+            };
+        } else if (id >= 701 && id <= 771) {
+            return {
+                icon: "weather-fog", 
+                type: "안개"
+            };
+        } else if (id === 781) {
+            return {
+                icon: "weather-tornado", 
+                type: "폭풍"
+            };
+        } else if (icon === "01d") {
+            return {
+                icon: "weather-sunny", 
+                type: "맑음"
+            };
+        } else if (icon === "01n") {
+            return {
+                icon: "weather-night", 
+                type: "맑음"
+            };
+        } else if (icon === "02d") {
+            return {
+                icon: "weather-partly-cloudy", 
+                type: "조금 흐림"
+            };
+        } else if (icon === "02n") {
+            return {
+                icon: "weather-night-partly-cloudy", 
+                type: "조금 흐림"
+            };
+        } else if (id >= 802 && id <= 804) {
+            return {
+                icon: "weather-cloudy", 
+                type: "흐림"
+            };
+        } else {
+            return {
+                icon: "alert-box-outline", 
+                type: "날씨 정보 오류"
+            };
+        };
+    };
+
   useEffect(() => {
     ask();
   }, []);
+
+  useEffect(() => {
+    const { type, icon } = getWeatherTypes(
+      weatherData?.weather[0]?.id,
+      weatherData?.weather[0]?.icon
+    );
+    setWeatherType(type);
+    setWeatherIcon(icon);
+  }, [weatherData]);
+
   const nowTemp = weatherData?.main?.temp.toFixed(1);
-  const sys = weatherData?.sys
+  const sys = weatherData?.sys;
   const sunsetTime = getSunTime(sys?.sunset);
   const sunriseTime = getSunTime(sys?.sunrise);
+  if(!weatherData) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.RedView}></View>
+        <ScrollView style={styles.BlueView}>
+          <ActivityIndicator size="large" color='white' style={{marginTop: '50%'}} />
+        </ScrollView>
+      </View>
+    )
+  }
   return (
     <View style={styles.container}>
       <View style={styles.RedView}></View>
-      <View style={styles.BlueView}>
-        <Text style={styles.CityTextStyle}>{weatherData?.name}</Text>
+      <ScrollView style={styles.BlueView}>
+        <Text style={styles.CityTextStyle}>{city}</Text>
         <View style={styles.weatherMainView}>
-          <Image source={{uri: `https://openweathermap.org/img/wn/${weatherData?.weather[0]?.icon}@2x.png`}} style={styles.image} />
+          <MaterialCommunityIcons
+            style={styles.weatherIcon}
+            name={weatherIcon}
+            size={48}
+            color="white"
+          />
           <Text style={styles.tempText}>{nowTemp}</Text>
-          <MaterialCommunityIcons style={styles.tempIcon} name="temperature-celsius" size={48} color="white" />
+          <MaterialCommunityIcons
+            style={styles.tempIcon}
+            name="temperature-celsius"
+            size={48}
+            color="white"
+          />
+        </View>
+        <View style={styles.weatherDesView}>
+          <Text style={{ ...styles.weatherDes}}>
+            {weatherType}
+          </Text>
+          <FontAwesome5
+            name="temperature-high"
+            size={24}
+            color="white"
+            style={styles.weatherDesicon}
+          />
+          <Text
+            style={{
+              ...styles.weatherDes,
+              marginLeft: 10,
+              fontSize: 27,
+            }}
+          >
+            {weatherData?.main?.temp_max}&#176;C
+          </Text>
+          <FontAwesome5
+            name="temperature-low"
+            size={24}
+            color="white"
+            style={styles.weatherDesicon}
+          />
+          <Text
+            style={{
+              ...styles.weatherDes,
+              marginLeft: 10,
+              fontSize: 27,
+            }}
+          >
+            {weatherData?.main?.temp_min}&#176;C
+          </Text>
         </View>
         <View style={styles.detailViewContainer}>
           <View style={styles.detailWeatherView}>
             <View style={styles.row}>
               <View style={styles.detailItem}>
-                <FontAwesome5 name="temperature-high" size={24} color="white" />
+                <FontAwesome5
+                  name="temperature-high"
+                  size={24}
+                  color="white"
+                />
                 <Text style={styles.detailItemMainText}>체감온도</Text>
-                <Text style={styles.detailItemMainText}>{weatherData?.main?.feels_like}<MaterialCommunityIcons style={styles.tempIcon} name="temperature-celsius" size={15} color="white" /></Text>
+                <Text style={styles.detailItemMainText}>
+                  {weatherData?.main?.feels_like}
+                  <MaterialCommunityIcons
+                    style={styles.tempIcon}
+                    name="temperature-celsius"
+                    size={15}
+                    color="white"
+                  />
+                </Text>
               </View>
               <View style={styles.detailItem}>
-                <MaterialCommunityIcons name="air-humidifier" size={24} color="white" />
+                <MaterialCommunityIcons
+                  name="air-humidifier"
+                  size={24}
+                  color="white"
+                />
                 <Text style={styles.detailItemMainText}>습도</Text>
-                <Text style={styles.detailItemMainText}>{weatherData?.main?.humidity}%</Text>
+                <Text style={styles.detailItemMainText}>
+                  {weatherData?.main?.humidity}%
+                </Text>
               </View>
               <View style={styles.detailItem}>
                 <Feather name="sunrise" size={24} color="white" />
@@ -78,45 +267,67 @@ export default function App() {
               <View style={styles.detailItem}>
                 <Feather name="wind" size={24} color="white" />
                 <Text style={styles.detailItemMainText}>풍속</Text>
-                <Text style={styles.detailItemMainText}>{weatherData?.wind?.speed}m/s</Text>
+                <Text style={styles.detailItemMainText}>
+                  {weatherData?.wind?.speed}m/s
+                </Text>
               </View>
               <View style={styles.detailItem}>
-                <MaterialCommunityIcons name="weather-cloudy-arrow-right" size={24} color="white" />
+                <MaterialCommunityIcons
+                  name="weather-cloudy-arrow-right"
+                  size={24}
+                  color="white"
+                />
                 <Text style={styles.detailItemMainText}>풍향</Text>
-                <Text style={styles.detailItemMainText}>{weatherData?.wind?.deg}&#176;</Text>
+                <Text style={styles.detailItemMainText}>
+                  {weatherData?.wind?.deg}&#176;
+                </Text>
               </View>
               <View style={styles.detailItem}>
-                <MaterialCommunityIcons name="weather-fog" size={24} color="white" />
+                <MaterialCommunityIcons
+                  name="weather-fog"
+                  size={24}
+                  color="white"
+                />
                 <Text style={styles.detailItemMainText}>흐림정도</Text>
-                <Text style={styles.detailItemMainText}>{weatherData?.clouds?.all}%</Text>
+                <Text style={styles.detailItemMainText}>
+                  {weatherData?.clouds?.all}%
+                </Text>
               </View>
               <View style={styles.detailItem}>
-                <MaterialCommunityIcons name="arrow-collapse-down" size={24} color="white" />
+                <MaterialCommunityIcons
+                  name="arrow-collapse-down"
+                  size={24}
+                  color="white"
+                />
                 <Text style={styles.detailItemMainText}>기압</Text>
-                <Text style={styles.detailItemMainText}>{weatherData?.main?.pressure}hPa</Text>
+                <Text style={styles.detailItemMainText}>
+                  {weatherData?.main?.pressure}hPa
+                </Text>
               </View>
             </View>
           </View>
         </View>
-      </View>
+      </ScrollView>
     </View>
   );
 }
 
+const { width } = Dimensions.get('window');
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#385781'
+    backgroundColor: '#385781',
   },
   RedView: {
-    flex: 1, 
+    flex: 0.5,
     backgroundColor: '#A8A765',
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
   },
   BlueView: {
-    flex: 3,
-    backgroundColor: '#385781'
+    flex: 2,
+    backgroundColor: '#385781',
   },
   CityTextStyle: {
     textAlign: 'center',
@@ -127,50 +338,65 @@ const styles = StyleSheet.create({
   WeatherMainText: {
     textAlign: 'center',
     fontSize: 20,
-    color: 'white'
-  },
-  image: {
-    width: 150, // 이미지 너비
-    height: 150, // 이미지 높이
-    left: '25%'
+    color: 'white',
   },
   weatherMainView: {
-    flexDirection: 'row'
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 20,
   },
   tempText: {
     fontSize: 50,
     fontWeight: '700',
     color: 'white',
-    left: '35%',
-    marginTop: 40
+    marginLeft: '3%',
   },
   tempIcon: {
-    left: '40%',
-    marginTop: 48
+    marginTop: 0,
   },
   detailViewContainer: {
     alignItems: 'center',
-    justifyContent: 'center'
+    justifyContent: 'center',
+    marginTop: 20,
   },
   detailWeatherView: {
-    width: 380,
+    width: width - 20,
     height: 160,
     backgroundColor: '#3C6094',
     borderRadius: 15,
-    padding: 10
+    padding: 10,
   },
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
   detailItem: {
-    width: '23%', 
-    alignItems: 'center', 
-    justifyContent: 'center', 
-    marginBottom: 10
+    width: '23%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
   },
   detailItemMainText: {
     color: 'white',
-    fontWeight: '700'
-  }
-})
+    fontWeight: '700',
+  },
+  weatherDes: {
+    color: 'white',
+    fontSize: 25,
+    top: -15,
+  },
+  weatherDesView: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 10,
+  },
+  weatherDesicon: {
+    marginLeft: 10,
+    top: -15
+  },
+  weatherIcon: {
+    marginLeft: '3%',
+  },
+});

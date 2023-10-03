@@ -3,9 +3,7 @@
     "name": "WhisperingSky",
     "slug": "WhisperingSky",
     "version": "1.0.0",
-    "assetBundlePatterns": [
-      "**/*"
-    ]
+    "assetBundlePatterns": ["**/*", "assets/images/*"]
   },
   "name": "WhisperingSky"
 }
