@@ -15,6 +15,7 @@ import {
   FontAwesome5,
   Feather,
 } from '@expo/vector-icons';
+import { ProgressChart } from "react-native-chart-kit";
 
 const apiKey = '26c67ed58f6cd8d8670df2b48a80a200';
 
@@ -307,6 +308,74 @@ export default function App() {
             </View>
           </View>
         </View>
+        <View style={styles.microdustContainer}>
+          <View style={styles.microdustBox}>
+          <ProgressChart 
+            data={{ data: [airData?.list[0]?.components?.pm10 / 300] }} 
+            width={100} 
+            height={100} 
+            strokeWidth={10} 
+            radius={34} 
+            chartConfig={{
+              backgroundGradientFrom: "#ffffff", 
+              backgroundGradientFromOpacity: 0, 
+              backgroundGradientTo: "#ffffff", 
+              backgroundGradientToOpacity: 0, 
+              color: (opacity=1) => {
+                  const microdust = airData?.list[0]?.components?.pm10;
+                  if (microdust < 25) {
+                      return `rgba(160, 248, 194, ${opacity})`;
+                  } else if (microdust >= 25 && microdust < 50) {
+                      return `rgba(162, 218, 153, ${opacity})`;
+                  } else if (microdust >= 50 && microdust < 90) {
+                      return `rgba(209, 221, 173, ${opacity})`;
+                  } else if (microdust >= 90 && microdust < 180) {
+                      return `rgba(240, 193, 164, ${opacity})`;
+                  } else {
+                      return `rgba(255, 125, 128, ${opacity})`;
+                  };
+              }
+            }} 
+            hideLegend={true} 
+          />
+          <View style={styles.microdustTextContainer}>
+            <Text allowFontScaling={false} style={styles.microdustText}>미세먼지</Text>
+            <Text allowFontScaling={false} style={styles.microdustText}>{airData?.list[0]?.components?.pm10.toFixed(1)}ppm</Text>
+          </View>
+          <ProgressChart 
+            data={{ data: [airData?.list[0]?.components?.pm2_5 / 300] }} 
+            width={100} 
+            height={100} 
+            strokeWidth={10} 
+            radius={34} 
+            chartConfig={{
+              backgroundGradientFrom: "#ffffff", 
+              backgroundGradientFromOpacity: 0, 
+              backgroundGradientTo: "#ffffff", 
+              backgroundGradientToOpacity: 0, 
+              color: (opacity=1) => {
+                  const microdust = airData?.list[0]?.components?.pm2_5;
+                  if (microdust < 25) {
+                      return `rgba(160, 248, 194, ${opacity})`;
+                  } else if (microdust >= 25 && microdust < 50) {
+                      return `rgba(162, 218, 153, ${opacity})`;
+                  } else if (microdust >= 50 && microdust < 90) {
+                      return `rgba(209, 221, 173, ${opacity})`;
+                  } else if (microdust >= 90 && microdust < 180) {
+                      return `rgba(240, 193, 164, ${opacity})`;
+                  } else {
+                      return `rgba(255, 125, 128, ${opacity})`;
+                  };
+              }
+            }} 
+            hideLegend={true} 
+          />
+          <View style={styles.microdustTextContainer}>
+            <Text allowFontScaling={false} style={styles.microdustText}>초미세먼지</Text>
+            <Text allowFontScaling={false} style={styles.microdustText}>{airData?.list[0]?.components?.pm2_5.toFixed(1)}ppm</Text>
+          </View>
+          </View>
+        </View>
       </ScrollView>
     </View>
   );
@@ -399,4 +468,28 @@ const styles = StyleSheet.create({
   weatherIcon: {
     marginLeft: '3%',
   },
+  microdustBox: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingRight: 20,
+  },
+  microdustContainer: {
+    display: 'flex',
+    flexDirection: 'row',
+    alignSelf: 'center',
+    alignItems: 'center',
+    marginTop: 20,
+    backgroundColor: '#3C6094',
+    borderRadius: 15,
+    width: '92%',
+  },
+  microdustText: {
+    fontSize: 17,
+    color: 'white',
+  }, 
+  microdustTextContainer: {
+    marginLeft: -2,
+  }
 });
