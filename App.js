@@ -1,13 +1,10 @@
-import * as Location from 'expo-location';
 import React, { useEffect, useState } from 'react';
 import {
   ScrollView,
   StyleSheet,
   Text,
   View,
-  Image,
   Dimensions,
-  ActivityIndicator,
 } from 'react-native';
 import getSunTime from './getSunTime';
 import {
@@ -16,17 +13,15 @@ import {
   Feather,
 } from '@expo/vector-icons';
 import { ProgressChart } from "react-native-chart-kit";
-
-const apiKey = '26c67ed58f6cd8d8670df2b48a80a200';
+import { getWeatherData, getAirData } from './api';
+import * as Location from 'expo-location';
 
 export default function App() {
-  const [city, setCity] = useState('Loading...');
-  const [location, setLocation] = useState();
-  const [ok, setOk] = useState(true);
-  const [weatherData, setWeatherData] = useState(null);
-  const [airData, setAirData] = useState(null);
+  const [locationCoords, setLocationCoords] = useState(null);
   const [weatherType, setWeatherType] = useState(null);
   const [weatherIcon, setWeatherIcon] = useState(null);
+  const [city, setCity] = useState('Loading...');
+  const [ok, setOk] = useState(true);
 
   const ask = async () => {
     const { granted } = await Location.requestForegroundPermissionsAsync();
@@ -35,32 +30,24 @@ export default function App() {
     }
     const { coords: { latitude, longitude } } =
       await Location.getCurrentPositionAsync({ accuracy: 5 });
-    fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${latitude}&lon=${longitude}&units=metric&lang=kr&appid=${apiKey}`)
-      .then((res) => res.json())
-      .then((data) => {
-        setWeatherData(data);
-      })
-      .catch((error) => {
-        console.error('Error fetching weather data:', error);
-      });
-    fetch(`https://api.openweathermap.org/data/2.5/air_pollution?lat=${latitude}&lon=${longitude}&units=metric&appid=${apiKey}`)
-      .then((res) => res.json())
-      .then((data) => {
-        setAirData(data);
-      });
     const location = await Location.reverseGeocodeAsync(
       { latitude, longitude },
       { useGoogleMaps: false }
     );
-    if(location[0].region !== null && location[0].district !== null) {
+    if (location[0].region !== null && location[0].district !== null) {
       setCity(location[0].region + ' ' + location[0].district);
-    } else if(location[0].city !== null && location[0].region !== null) {
+    } else if (location[0].city !== null && location[0].region !== null) {
       setCity(location[0].region + ' ' + location[0].city)
     } else {
       setCity(location[0].country)
     }
+    let arr = [latitude, longitude];
+    setLocationCoords(arr);
   };
 
+  useEffect(() => {
+    ask();
+  }, []);
   const getWeatherTypes = (id, icon) => {
         if ((id >= 200 && id <= 202) || (id >= 230 && id <= 232)) {
             return {
@@ -140,9 +127,10 @@ export default function App() {
         };
     };
 
-  useEffect(() => {
-    ask();
-  }, []);
+  let Latitude = locationCoords?.[0];
+  let Longitude = locationCoords?.[1];
+  let weatherData = getWeatherData(Latitude, Longitude);
+  let airData = getAirData(Latitude, Longitude);
 
   useEffect(() => {
     const { type, icon } = getWeatherTypes(
@@ -157,16 +145,7 @@ export default function App() {
   const sys = weatherData?.sys;
   const sunsetTime = getSunTime(sys?.sunset);
   const sunriseTime = getSunTime(sys?.sunrise);
-  if(!weatherData) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.RedView}></View>
-        <ScrollView style={styles.BlueView}>
-          <ActivityIndicator size="large" color='white' style={{marginTop: '50%'}} />
-        </ScrollView>
-      </View>
-    )
-  }
+
   return (
     <View style={styles.container}>
       <View style={styles.RedView}></View>
@@ -188,7 +167,7 @@ export default function App() {
           />
         </View>
         <View style={styles.weatherDesView}>
-          <Text style={{ ...styles.weatherDes}}>
+          <Text style={{ ...styles.weatherDes }}>
             {weatherType}
           </Text>
           <FontAwesome5
@@ -310,70 +289,70 @@ export default function App() {
         </View>
         <View style={styles.microdustContainer}>
           <View style={styles.microdustBox}>
-          <ProgressChart 
-            data={{ data: [airData?.list[0]?.components?.pm10 / 300] }} 
-            width={100} 
-            height={100} 
-            strokeWidth={10} 
-            radius={34} 
-            chartConfig={{
-              backgroundGradientFrom: "#ffffff", 
-              backgroundGradientFromOpacity: 0, 
-              backgroundGradientTo: "#ffffff", 
-              backgroundGradientToOpacity: 0, 
-              color: (opacity=1) => {
+            <ProgressChart
+              data={{ data: [airData?.list[0]?.components?.pm10 / 300] }}
+              width={100}
+              height={100}
+              strokeWidth={10}
+              radius={34}
+              chartConfig={{
+                backgroundGradientFrom: "#ffffff",
+                backgroundGradientFromOpacity: 0,
+                backgroundGradientTo: "#ffffff",
+                backgroundGradientToOpacity: 0,
+                color: (opacity = 1) => {
                   const microdust = airData?.list[0]?.components?.pm10;
                   if (microdust < 25) {
-                      return `rgba(160, 248, 194, ${opacity})`;
+                    return `rgba(160, 248, 194, ${opacity})`;
                   } else if (microdust >= 25 && microdust < 50) {
-                      return `rgba(162, 218, 153, ${opacity})`;
+                    return `rgba(162, 218, 153, ${opacity})`;
                   } else if (microdust >= 50 && microdust < 90) {
-                      return `rgba(209, 221, 173, ${opacity})`;
+                    return `rgba(209, 221, 173, ${opacity})`;
                   } else if (microdust >= 90 && microdust < 180) {
-                      return `rgba(240, 193, 164, ${opacity})`;
+                    return `rgba(240, 193, 164, ${opacity})`;
                   } else {
-                      return `rgba(255, 125, 128, ${opacity})`;
-                  };
-              }
-            }} 
-            hideLegend={true} 
-          />
-          <View style={styles.microdustTextContainer}>
-            <Text allowFontScaling={false} style={styles.microdustText}>미세먼지</Text>
-            <Text allowFontScaling={false} style={styles.microdustText}>{airData?.list[0]?.components?.pm10.toFixed(1)}ppm</Text>
-          </View>
-          <ProgressChart 
-            data={{ data: [airData?.list[0]?.components?.pm2_5 / 300] }} 
-            width={100} 
-            height={100} 
-            strokeWidth={10} 
-            radius={34} 
-            chartConfig={{
-              backgroundGradientFrom: "#ffffff", 
-              backgroundGradientFromOpacity: 0, 
-              backgroundGradientTo: "#ffffff", 
-              backgroundGradientToOpacity: 0, 
-              color: (opacity=1) => {
+                    return `rgba(255, 125, 128, ${opacity})`;
+                  }
+                }
+              }}
+              hideLegend={true}
+            />
+            <View style={styles.microdustTextContainer}>
+              <Text allowFontScaling={false} style={styles.microdustText}>미세먼지</Text>
+              <Text allowFontScaling={false} style={styles.microdustText}>{airData?.list[0]?.components?.pm10.toFixed(1)}ppm</Text>
+            </View>
+            <ProgressChart
+              data={{ data: [airData?.list[0]?.components?.pm2_5 / 300] }}
+              width={100}
+              height={100}
+              strokeWidth={10}
+              radius={34}
+              chartConfig={{
+                backgroundGradientFrom: "#ffffff",
+                backgroundGradientFromOpacity: 0,
+                backgroundGradientTo: "#ffffff",
+                backgroundGradientToOpacity: 0,
+                color: (opacity = 1) => {
                   const microdust = airData?.list[0]?.components?.pm2_5;
                   if (microdust < 25) {
-                      return `rgba(160, 248, 194, ${opacity})`;
+                    return `rgba(160, 248, 194, ${opacity})`;
                   } else if (microdust >= 25 && microdust < 50) {
-                      return `rgba(162, 218, 153, ${opacity})`;
+                    return `rgba(162, 218, 153, ${opacity})`;
                   } else if (microdust >= 50 && microdust < 90) {
-                      return `rgba(209, 221, 173, ${opacity})`;
+                    return `rgba(209, 221, 173, ${opacity})`;
                   } else if (microdust >= 90 && microdust < 180) {
-                      return `rgba(240, 193, 164, ${opacity})`;
+                    return `rgba(240, 193, 164, ${opacity})`;
                   } else {
-                      return `rgba(255, 125, 128, ${opacity})`;
-                  };
-              }
-            }} 
-            hideLegend={true} 
-          />
-          <View style={styles.microdustTextContainer}>
-            <Text allowFontScaling={false} style={styles.microdustText}>초미세먼지</Text>
-            <Text allowFontScaling={false} style={styles.microdustText}>{airData?.list[0]?.components?.pm2_5.toFixed(1)}ppm</Text>
-          </View>
+                    return `rgba(255, 125, 128, ${opacity})`;
+                  }
+                }
+              }}
+              hideLegend={true}
+            />
+            <View style={styles.microdustTextContainer}>
+              <Text allowFontScaling={false} style={styles.microdustText}>초미세먼지</Text>
+              <Text allowFontScaling={false} style={styles.microdustText}>{airData?.list[0]?.components?.pm2_5.toFixed(1)}ppm</Text>
+            </View>
           </View>
         </View>
       </ScrollView>
@@ -386,108 +365,103 @@ const { width } = Dimensions.get('window');
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#385781',
+    backgroundColor: "#385781",
   },
   RedView: {
     flex: 0.5,
-    backgroundColor: '#A8A765',
+    backgroundColor: "#A8A765",
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
   },
   BlueView: {
     flex: 2,
-    backgroundColor: '#385781',
+    backgroundColor: "#385781",
   },
   CityTextStyle: {
-    textAlign: 'center',
+    textAlign: "center",
     marginTop: 20,
-    color: 'white',
+    color: "white",
     fontSize: 30,
   },
-  WeatherMainText: {
-    textAlign: 'center',
-    fontSize: 20,
-    color: 'white',
-  },
   weatherMainView: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     marginTop: 20,
+  },
+  weatherIcon: {
+    marginLeft: "3%",
   },
   tempText: {
     fontSize: 50,
-    fontWeight: '700',
-    color: 'white',
-    marginLeft: '3%',
+    fontWeight: "700",
+    color: "white",
+    marginLeft: "3%",
   },
   tempIcon: {
     marginTop: 0,
   },
   detailViewContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     marginTop: 20,
   },
   detailWeatherView: {
     width: width - 20,
     height: 160,
-    backgroundColor: '#3C6094',
+    backgroundColor: "#3C6094",
     borderRadius: 15,
     padding: 10,
   },
   row: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
   },
   detailItem: {
-    width: '23%',
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: "23%",
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: 10,
   },
   detailItemMainText: {
-    color: 'white',
-    fontWeight: '700',
+    color: "white",
+    fontWeight: "700",
   },
   weatherDes: {
-    color: 'white',
+    color: "white",
     fontSize: 25,
     top: -15,
   },
   weatherDesView: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     marginTop: 10,
   },
   weatherDesicon: {
     marginLeft: 10,
     top: -15
   },
-  weatherIcon: {
-    marginLeft: '3%',
-  },
   microdustBox: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     paddingRight: 20,
   },
   microdustContainer: {
-    display: 'flex',
-    flexDirection: 'row',
-    alignSelf: 'center',
-    alignItems: 'center',
+    display: "flex",
+    flexDirection: "row",
+    alignSelf: "center",
+    alignItems: "center",
     marginTop: 20,
-    backgroundColor: '#3C6094',
+    backgroundColor: "#3C6094",
     borderRadius: 15,
-    width: '92%',
+    width: "92%",
   },
   microdustText: {
     fontSize: 17,
-    color: 'white',
+    color: "white",
   }, 
   microdustTextContainer: {
     marginLeft: -2,
