@@ -1,39 +1,32 @@
-import React, { useEffect, useState } from 'react';
-import {
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-  Dimensions,
-} from 'react-native';
-import getSunTime from './getSunTime';
+import * as Location from 'expo-location';
+import React, { useEffect, useState } from "react";
+import { ScrollView, StyleSheet, Text, Image, Dimensions, View } from "react-native";
 import {
   MaterialCommunityIcons,
   FontAwesome5,
   Feather,
 } from '@expo/vector-icons';
-import { ProgressChart } from "react-native-chart-kit";
-import { getWeatherData, getAirData } from './api';
-import * as Location from 'expo-location';
+import getSunTime from './getSunTime';
 
 export default function App() {
-  const [locationCoords, setLocationCoords] = useState(null);
-  const [weatherType, setWeatherType] = useState(null);
-  const [weatherIcon, setWeatherIcon] = useState(null);
-  const [city, setCity] = useState('Loading...');
+  const [city, setCity] = useState("Loading...");
+  const [weatherData, setWeatherData] = useState(null);
+  const [days, setDays] = useState([]);
   const [ok, setOk] = useState(true);
-
-  const ask = async () => {
-    const { granted } = await Location.requestForegroundPermissionsAsync();
-    if (!granted) {
-      setOk(false);
+  const BASE_URL = 'https://api.openweathermap.org/data/2.5';
+  const apiKey = '26c67ed58f6cd8d8670df2b48a80a200';
+  const ask = async() => {
+    const {granted} = await Location.requestForegroundPermissionsAsync();
+    if(!granted) {
+      setOk(false)
     }
-    const { coords: { latitude, longitude } } =
-      await Location.getCurrentPositionAsync({ accuracy: 5 });
-    const location = await Location.reverseGeocodeAsync(
-      { latitude, longitude },
-      { useGoogleMaps: false }
-    );
+    const {coords: {latitude, longitude}} = await Location.getCurrentPositionAsync({accuracy: 5});
+    fetch(`${BASE_URL}/weather?lat=${latitude}&lon=${longitude}&units=metric&lang=kr&appid=${apiKey}`)
+    .then((res) => res.json())
+    .then((data) => {
+      setWeatherData(data);
+    })
+    const location = await Location.reverseGeocodeAsync({latitude, longitude}, {useGoogleMaps: false});
     if (location[0].region !== null && location[0].district !== null) {
       setCity(location[0].region + ' ' + location[0].district);
     } else if (location[0].city !== null && location[0].region !== null) {
@@ -41,167 +34,22 @@ export default function App() {
     } else {
       setCity(location[0].country)
     }
-    let arr = [latitude, longitude];
-    setLocationCoords(arr);
-  };
-
+  }
   useEffect(() => {
     ask();
-  }, []);
-  const getWeatherTypes = (id, icon) => {
-        if ((id >= 200 && id <= 202) || (id >= 230 && id <= 232)) {
-            return {
-                icon: "weather-lightning-rainy", 
-                type: "천둥비"
-            };
-        } else if (id >= 210 && id <= 221) {
-            return {
-                icon: "weather-lightning", 
-                type: "벼락"
-            };
-        } else if ((id >= 300 && id <= 321) || id === 520) {
-            return {
-                icon: "weather-pouring", 
-                type: "소나기"
-            };
-        } else if ((id >= 500 && id <= 504) || (id >= 521 && id <= 531)) {
-            return {
-                icon: "weather-rainy", 
-                type: "비"
-            };
-        } else if (id === 511 || id === 600 || id === 601 || (id >= 611 && id <= 613) || id === 620 || id === 621) {
-            return {
-                icon: "weather-snowy", 
-                type: "눈"
-            };
-        } else if (id === 602 || id === 622) {
-            return {
-                icon: "weather-snowy-heavy", 
-                type: "폭설"
-            };
-        } else if (id === 615 || id === 616) {
-            return {
-                icon: "weather-snowy-rainy", 
-                type: "눈비"
-            };
-        } else if (id >= 701 && id <= 771) {
-            return {
-                icon: "weather-fog", 
-                type: "안개"
-            };
-        } else if (id === 781) {
-            return {
-                icon: "weather-tornado", 
-                type: "폭풍"
-            };
-        } else if (icon === "01d") {
-            return {
-                icon: "weather-sunny", 
-                type: "맑음"
-            };
-        } else if (icon === "01n") {
-            return {
-                icon: "weather-night", 
-                type: "맑음"
-            };
-        } else if (icon === "02d") {
-            return {
-                icon: "weather-partly-cloudy", 
-                type: "조금 흐림"
-            };
-        } else if (icon === "02n") {
-            return {
-                icon: "weather-night-partly-cloudy", 
-                type: "조금 흐림"
-            };
-        } else if (id >= 802 && id <= 804) {
-            return {
-                icon: "weather-cloudy", 
-                type: "흐림"
-            };
-        } else {
-            return {
-                icon: "alert-box-outline", 
-                type: "날씨 정보 오류"
-            };
-        };
-    };
-
-  let Latitude = locationCoords?.[0];
-  let Longitude = locationCoords?.[1];
-  let weatherData = getWeatherData(Latitude, Longitude);
-  let airData = getAirData(Latitude, Longitude);
-
-  useEffect(() => {
-    const { type, icon } = getWeatherTypes(
-      weatherData?.weather[0]?.id,
-      weatherData?.weather[0]?.icon
-    );
-    setWeatherType(type);
-    setWeatherIcon(icon);
-  }, [weatherData]);
-
-  const nowTemp = weatherData?.main?.temp.toFixed(1);
+  }, [])
   const sys = weatherData?.sys;
   const sunsetTime = getSunTime(sys?.sunset);
   const sunriseTime = getSunTime(sys?.sunrise);
-
   return (
-    <View style={styles.container}>
-      <View style={styles.RedView}></View>
-      <ScrollView style={styles.BlueView}>
-        <Text style={styles.CityTextStyle}>{city}</Text>
-        <View style={styles.weatherMainView}>
-          <MaterialCommunityIcons
-            style={styles.weatherIcon}
-            name={weatherIcon}
-            size={48}
-            color="white"
-          />
-          <Text style={styles.tempText}>{nowTemp}</Text>
-          <MaterialCommunityIcons
-            style={styles.tempIcon}
-            name="temperature-celsius"
-            size={48}
-            color="white"
-          />
-        </View>
-        <View style={styles.weatherDesView}>
-          <Text style={{ ...styles.weatherDes }}>
-            {weatherType}
-          </Text>
-          <FontAwesome5
-            name="temperature-high"
-            size={24}
-            color="white"
-            style={styles.weatherDesicon}
-          />
-          <Text
-            style={{
-              ...styles.weatherDes,
-              marginLeft: 10,
-              fontSize: 27,
-            }}
-          >
-            {weatherData?.main?.temp_max}&#176;C
-          </Text>
-          <FontAwesome5
-            name="temperature-low"
-            size={24}
-            color="white"
-            style={styles.weatherDesicon}
-          />
-          <Text
-            style={{
-              ...styles.weatherDes,
-              marginLeft: 10,
-              fontSize: 27,
-            }}
-          >
-            {weatherData?.main?.temp_min}&#176;C
-          </Text>
-        </View>
-        <View style={styles.detailViewContainer}>
+    <ScrollView style={styles.container}>
+      <Text style={styles.CityCurrentStyle}>(현재 위치)</Text>
+      <Text style={styles.CityTextStyle}>{city}</Text>
+      <Text style={styles.weatherMainDes}>{weatherData?.weather[0]?.description}</Text>
+      <Image source={{uri: `https://openweathermap.org/img/wn/${weatherData?.weather[0]?.icon}@2x.png`}} style={{width: 200, height: 200, left: '25%'}} />
+      <Text style={styles.tempText}>{weatherData?.main?.temp.toFixed(1)}&#176;C</Text>
+      <Text style={styles.tempHighless}>최고 {weatherData?.main?.temp_max.toFixed(1)}&#176;C / 최저 {weatherData?.main?.temp_min.toFixed(1)}&#176;C</Text>
+      <View style={styles.detailViewContainer}>
           <View style={styles.detailWeatherView}>
             <View style={styles.row}>
               <View style={styles.detailItem}>
@@ -287,119 +135,45 @@ export default function App() {
             </View>
           </View>
         </View>
-        <View style={styles.microdustContainer}>
-          <View style={styles.microdustBox}>
-            <ProgressChart
-              data={{ data: [airData?.list[0]?.components?.pm10 / 300] }}
-              width={100}
-              height={100}
-              strokeWidth={10}
-              radius={34}
-              chartConfig={{
-                backgroundGradientFrom: "#ffffff",
-                backgroundGradientFromOpacity: 0,
-                backgroundGradientTo: "#ffffff",
-                backgroundGradientToOpacity: 0,
-                color: (opacity = 1) => {
-                  const microdust = airData?.list[0]?.components?.pm10;
-                  if (microdust < 25) {
-                    return `rgba(160, 248, 194, ${opacity})`;
-                  } else if (microdust >= 25 && microdust < 50) {
-                    return `rgba(162, 218, 153, ${opacity})`;
-                  } else if (microdust >= 50 && microdust < 90) {
-                    return `rgba(209, 221, 173, ${opacity})`;
-                  } else if (microdust >= 90 && microdust < 180) {
-                    return `rgba(240, 193, 164, ${opacity})`;
-                  } else {
-                    return `rgba(255, 125, 128, ${opacity})`;
-                  }
-                }
-              }}
-              hideLegend={true}
-            />
-            <View style={styles.microdustTextContainer}>
-              <Text allowFontScaling={false} style={styles.microdustText}>미세먼지</Text>
-              <Text allowFontScaling={false} style={styles.microdustText}>{airData?.list[0]?.components?.pm10.toFixed(1)}ppm</Text>
-            </View>
-            <ProgressChart
-              data={{ data: [airData?.list[0]?.components?.pm2_5 / 300] }}
-              width={100}
-              height={100}
-              strokeWidth={10}
-              radius={34}
-              chartConfig={{
-                backgroundGradientFrom: "#ffffff",
-                backgroundGradientFromOpacity: 0,
-                backgroundGradientTo: "#ffffff",
-                backgroundGradientToOpacity: 0,
-                color: (opacity = 1) => {
-                  const microdust = airData?.list[0]?.components?.pm2_5;
-                  if (microdust < 25) {
-                    return `rgba(160, 248, 194, ${opacity})`;
-                  } else if (microdust >= 25 && microdust < 50) {
-                    return `rgba(162, 218, 153, ${opacity})`;
-                  } else if (microdust >= 50 && microdust < 90) {
-                    return `rgba(209, 221, 173, ${opacity})`;
-                  } else if (microdust >= 90 && microdust < 180) {
-                    return `rgba(240, 193, 164, ${opacity})`;
-                  } else {
-                    return `rgba(255, 125, 128, ${opacity})`;
-                  }
-                }
-              }}
-              hideLegend={true}
-            />
-            <View style={styles.microdustTextContainer}>
-              <Text allowFontScaling={false} style={styles.microdustText}>초미세먼지</Text>
-              <Text allowFontScaling={false} style={styles.microdustText}>{airData?.list[0]?.components?.pm2_5.toFixed(1)}ppm</Text>
-            </View>
-          </View>
-        </View>
-      </ScrollView>
-    </View>
-  );
+    </ScrollView>
+  )
 }
 
 const { width } = Dimensions.get('window');
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: "#385781",
+    backgroundColor: "#227BCE",
   },
-  RedView: {
-    flex: 0.5,
-    backgroundColor: "#A8A765",
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
-  },
-  BlueView: {
-    flex: 2,
-    backgroundColor: "#385781",
-  },
-  CityTextStyle: {
+  CityCurrentStyle: {
     textAlign: "center",
     marginTop: 20,
     color: "white",
+    fontSize: 17,
+  },
+  CityTextStyle: {
+    textAlign: "center",
+    marginTop: 10,
+    color: "white",
     fontSize: 30,
   },
-  weatherMainView: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 20,
-  },
-  weatherIcon: {
-    marginLeft: "3%",
+  weatherMainDes: {
+    textAlign: "center",
+    marginTop: 10,
+    color: "white",
+    fontSize: 19
   },
   tempText: {
-    fontSize: 50,
-    fontWeight: "700",
+    textAlign: "center",
+    marginTop: 18,
     color: "white",
-    marginLeft: "3%",
+    fontSize: 35
   },
-  tempIcon: {
-    marginTop: 0,
+  tempHighless: {
+    textAlign: "center",
+    marginTop: 17,
+    color: "white",
+    fontSize: 18
   },
   detailViewContainer: {
     alignItems: "center",
@@ -427,43 +201,4 @@ const styles = StyleSheet.create({
     color: "white",
     fontWeight: "700",
   },
-  weatherDes: {
-    color: "white",
-    fontSize: 25,
-    top: -15,
-  },
-  weatherDesView: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 10,
-  },
-  weatherDesicon: {
-    marginLeft: 10,
-    top: -15
-  },
-  microdustBox: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingRight: 20,
-  },
-  microdustContainer: {
-    display: "flex",
-    flexDirection: "row",
-    alignSelf: "center",
-    alignItems: "center",
-    marginTop: 20,
-    backgroundColor: "#3C6094",
-    borderRadius: 15,
-    width: "92%",
-  },
-  microdustText: {
-    fontSize: 17,
-    color: "white",
-  }, 
-  microdustTextContainer: {
-    marginLeft: -2,
-  }
-});
+})

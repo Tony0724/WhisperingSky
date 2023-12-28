@@ -8,6 +8,8 @@ function getSunTime(data) {
     const sunMinutes = sunData.getMinutes();
     if(sunHours > 12) {
         sunHours = 'P.M. ' + sunHours % 12;
+    } else {
+        sunHours = 'A.M. ' + sunHours % 12;
     }
     const formattedTime = `${sunHours}:${sunMinutes}`;
     return formattedTime;
